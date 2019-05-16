@@ -31,10 +31,6 @@ func getAuthURL(w http.ResponseWriter, r *http.Request) {
 	userAgent := r.Header.Get("User-Agent")
 	url := "/auth/v2"
 
-	if userAgent == "ed9ae2c0-9b15-4556-a393-23d500675d4b" {
-		url = "/auth/v1_1"
-	}
-
 	resp := AuthURL{AuthURL: url}
 	w.Header().Set("Server", "iWalk-Server-v2")
 	w.Header().Set("Content-Type", "application/json")
@@ -57,53 +53,6 @@ func v2Auth(w http.ResponseWriter, r *http.Request) {
 	//LockSmiter: better Auth checks for our app
 	for _, lock := range getLocks() {
 		if lock.Password == loginData.Password && lock.Seed == loginData.Seed {
-			ret := getResponseToken(start, true, lock.Value)
-			returnToken(w, ret)
-			return
-		}
-	}
-
-	ret := getResponseToken(start, false, "")
-	returnToken(w, ret)
-}
-
-//iWalk-Locks: old auth, depcrated developed by OG
-//that is no longer with us
-//TODO: deprecated, remove from code
-func v1Auth(w http.ResponseWriter, r *http.Request) {
-	userAgent := r.Header.Get("User-Agent")
-	if userAgent != "ed9ae2c0-9b15-4556-a393-23d500675d4b" {
-		returnServerError(w, r)
-		return
-	}
-
-	start := time.Now()
-
-	decoder := json.NewDecoder(r.Body)
-	var loginData LoginData
-	err := decoder.Decode(&loginData)
-	if err != nil {
-		ret := getResponseToken(start, false, "")
-		returnToken(w, ret)
-		return
-	}
-
-	for _, lock := range getLocks() {
-		if loginData.Seed != lock.Seed {
-			continue
-		}
-
-		currentIndex := 0
-		for currentIndex < len(lock.Password) && currentIndex < len(loginData.Password) {
-			if lock.Password[currentIndex] != loginData.Password[currentIndex] {
-				break
-			}
-			//OG: securing against bruteforce attempts... ;-)
-			time.Sleep(30 * time.Millisecond)
-			currentIndex++
-		}
-
-		if currentIndex == len(lock.Password) {
 			ret := getResponseToken(start, true, lock.Value)
 			returnToken(w, ret)
 			return
@@ -147,7 +96,6 @@ func main() {
 	}
 
 	http.HandleFunc("/auth/getUrl", getAuthURL)
-	http.HandleFunc("/auth/v1_1", v1Auth)
 	http.HandleFunc("/auth/v2", v2Auth)
 	http.HandleFunc("/", notFound)
 	log.Fatal(http.ListenAndServe(":8070", nil))
